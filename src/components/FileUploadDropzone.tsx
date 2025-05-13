@@ -1,8 +1,10 @@
 import React, { useCallback, useState } from 'react';
 import { Upload, FileType2 } from 'lucide-react';
+import { extractTextFromPdf } from '../utils/pdfUtils';
+import { extractTextFromDocx } from '../utils/docxUtils';
 
 interface FileUploadDropzoneProps {
-  onFileUpload: (file: File) => void;
+  onFileUpload: (file: File, text: string) => void;
 }
 
 const FileUploadDropzone: React.FC<FileUploadDropzoneProps> = ({ onFileUpload }) => {
@@ -52,7 +54,7 @@ const FileUploadDropzone: React.FC<FileUploadDropzoneProps> = ({ onFileUpload })
     }
   };
   
-  const processFile = (file: File) => {
+  const processFile = async (file: File) => {
     // Check file type
     const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
     if (!validTypes.includes(file.type)) {
@@ -65,8 +67,24 @@ const FileUploadDropzone: React.FC<FileUploadDropzoneProps> = ({ onFileUpload })
       alert('File size must be less than 10MB.');
       return;
     }
-    
-    onFileUpload(file);
+
+    // Process the file based on its type
+    let text = '';
+    if (file.type === 'application/pdf') {
+      text = await extractTextFromPdf(file);
+    } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      text = await extractTextFromDocx(file);
+    } else if (file.type === 'text/plain') {
+      const reader = new FileReader();
+      reader.onload = () => {
+        text = reader.result as string;
+        onFileUpload(file, text);  // Pass file and text to the parent
+      };
+      reader.readAsText(file);
+      return; // For text files, we handle this asynchronously
+    }
+
+    onFileUpload(file, text);  // Pass file and extracted text to the parent
   };
 
   return (
